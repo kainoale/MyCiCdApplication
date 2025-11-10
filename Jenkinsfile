@@ -35,23 +35,27 @@ pipeline {
           docker run --rm \
             --volumes-from jenkins \
             -e KUBECONFIG=/var/jenkins_home/.kube/config \
-            -e WORKSPACE="${WORKSPACE}" \
+            -e WORKSPACE=${WORKSPACE} \
             --entrypoint /bin/sh bitnami/kubectl:latest -c '
               set -e
 
-              # диагностика: убеждаемся, что kubeconfig есть и читается
-              ls -l "$KUBECONFIG"
-              echo "== kubectl uses this cluster =="
-              kubectl --kubeconfig="$KUBECONFIG" config current-context
-              kubectl --kubeconfig="$KUBECONFIG" cluster-info || true
+              echo "KUBECONFIG path: \$KUBECONFIG"
+              ls -l "\$KUBECONFIG" || { echo "kubeconfig not found"; exit 1; }
 
-              # применяем манифесты
-              kubectl --kubeconfig="$KUBECONFIG" apply -f "$WORKSPACE/k8s/namespace.yaml"
-              sed "s/\\\${IMAGE_TAG}/${IMAGE_TAG}/g" "$WORKSPACE/k8s/deployment.yaml" | kubectl --kubeconfig="$KUBECONFIG" apply -f -
-              kubectl --kubeconfig="$KUBECONFIG" apply -f "$WORKSPACE/k8s/service.yaml"
+              echo "== current-context =="
+              kubectl --kubeconfig="\$KUBECONFIG" config current-context
 
-              # ждём раскатку
-              kubectl --kubeconfig="$KUBECONFIG" -n myapp rollout status deploy/myapp
+              echo "== cluster-info =="
+              kubectl --kubeconfig="\$KUBECONFIG" cluster-info
+
+              # apply manifests
+              kubectl --kubeconfig="\$KUBECONFIG" apply -f "\$WORKSPACE/k8s/namespace.yaml"
+              sed "s/\\\${IMAGE_TAG}/${IMAGE_TAG}/g" "\$WORKSPACE/k8s/deployment.yaml" | \
+                kubectl --kubeconfig="\$KUBECONFIG" apply -f -
+              kubectl --kubeconfig="\$KUBECONFIG" apply -f "\$WORKSPACE/k8s/service.yaml"
+
+              # wait rollout
+              kubectl --kubeconfig="\$KUBECONFIG" -n myapp rollout status deploy/myapp
             '
         """
       }
