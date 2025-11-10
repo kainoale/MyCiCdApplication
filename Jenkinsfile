@@ -29,24 +29,24 @@ pipeline {
       }
     }
 
-    stage('Deploy to Kubernetes'){
+    stage('Deploy to Kubernetes') {
       steps {
         sh """
           docker run --rm \
-            -v /var/jenkins_home/.kube:/root/.kube \
-            -v ${WORKSPACE}/k8s:/k8s \
-            -e KUBECONFIG=/root/.kube/config \
-            -e IMAGE_TAG=${IMAGE_TAG} \
+            --volumes-from jenkins \
+            -e KUBECONFIG=/var/jenkins_home/.kube/config \
+            -e WORKSPACE="${WORKSPACE}" \
             --entrypoint /bin/sh bitnami/kubectl:latest -c '
               set -e
-              kubectl apply -f /k8s/namespace.yaml &&
-              sed "s/\\\${IMAGE_TAG}/$IMAGE_TAG/g" /k8s/deployment.yaml | kubectl apply -f - &&
-              kubectl apply -f /k8s/service.yaml &&
+              kubectl apply -f "$WORKSPACE/k8s/namespace.yaml"
+              sed "s/\\\${IMAGE_TAG}/${IMAGE_TAG}/g" "$WORKSPACE/k8s/deployment.yaml" | kubectl apply -f -
+              kubectl apply -f "$WORKSPACE/k8s/service.yaml"
               kubectl -n myapp rollout status deploy/myapp
             '
         """
       }
     }
+
   }
 
   post {
