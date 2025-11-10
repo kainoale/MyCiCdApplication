@@ -38,10 +38,20 @@ pipeline {
             -e WORKSPACE="${WORKSPACE}" \
             --entrypoint /bin/sh bitnami/kubectl:latest -c '
               set -e
-              kubectl apply -f "$WORKSPACE/k8s/namespace.yaml"
-              sed "s/\\\${IMAGE_TAG}/${IMAGE_TAG}/g" "$WORKSPACE/k8s/deployment.yaml" | kubectl apply -f -
-              kubectl apply -f "$WORKSPACE/k8s/service.yaml"
-              kubectl -n myapp rollout status deploy/myapp
+
+              # диагностика: убеждаемся, что kubeconfig есть и читается
+              ls -l "$KUBECONFIG"
+              echo "== kubectl uses this cluster =="
+              kubectl --kubeconfig="$KUBECONFIG" config current-context
+              kubectl --kubeconfig="$KUBECONFIG" cluster-info || true
+
+              # применяем манифесты
+              kubectl --kubeconfig="$KUBECONFIG" apply -f "$WORKSPACE/k8s/namespace.yaml"
+              sed "s/\\\${IMAGE_TAG}/${IMAGE_TAG}/g" "$WORKSPACE/k8s/deployment.yaml" | kubectl --kubeconfig="$KUBECONFIG" apply -f -
+              kubectl --kubeconfig="$KUBECONFIG" apply -f "$WORKSPACE/k8s/service.yaml"
+
+              # ждём раскатку
+              kubectl --kubeconfig="$KUBECONFIG" -n myapp rollout status deploy/myapp
             '
         """
       }
