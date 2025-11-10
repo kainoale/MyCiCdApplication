@@ -15,13 +15,8 @@ pipeline {
 
     stage('Build app') {
       steps {
-        sh '''
-          docker run --rm \
-            -v /var/jenkins_home/.m2:/root/.m2 \
-            -v "$PWD":/app -w /app \
-            maven:3.9-eclipse-temurin-21 \
-            mvn -q -B -DskipTests package
-        '''
+        sh 'chmod +x mvnw || true'
+        sh './mvnw -q -B -DskipTests package'
       }
     }
 
